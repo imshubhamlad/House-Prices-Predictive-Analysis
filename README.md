@@ -44,7 +44,7 @@ The EDA therefore helped move the project from simply fitting models to building
 
 ## Approach
 
-The project evolved through multiple modelling experiments. The final V3 workflow focuses on improving data quality and making model selection data-driven.
+The project evolved through multiple modelling experiments. V3 focused on fixing the preprocessing pipeline and making model selection data-driven. **V4 builds directly on V3's own "Where to go from here" notes** and focuses on getting more out of the model layer: benchmarking a second gradient-boosted model, and replacing a hand-weighted blend with a proper stacking ensemble.
 
 ### Key improvements in V3
 
@@ -57,17 +57,33 @@ The project evolved through multiple modelling experiments. The final V3 workflo
 - Compared models using cross-validation before tuning the selected model.
 - Added XGBoost and a simple model blend as part of the final experimentation.
 
+### Key improvements in V4
+
+- Added two interaction features: `OverallGrade` (`OverallQual * OverallCond`) and `QualAreaScore` (`OverallQual * GrLivArea`), to capture quality/condition and quality/size effects that neither raw column captures alone.
+- Added **ElasticNet** and **LightGBM** to the model comparison, so the full space of reasonable candidates is benchmarked before anything is tuned.
+- Tuned the best *linear* model and the best *tree-based* model separately (rather than only the single overall CV winner), because the stacking step needs two models that make different kinds of errors.
+- Replaced V3's fixed inverse-RMSE blend with a `StackingRegressor`: a Ridge meta-learner trained on out-of-fold base-model predictions, so the blend weights are learned from data instead of hand-computed from a single CV score.
+- Verified, rather than assumed, that stacking genuinely diverse models (a regularized linear model + a tree ensemble) beats stacking two correlated linear models — an early attempt at stacking Lasso/Ridge/ElasticNet together actually underperformed the single best linear model.
+
 ## Model Evaluation
 
-The Kaggle leaderboard metric is based on the RMSE of the logarithm of predicted and actual sale prices.
+The Kaggle leaderboard metric is based on the RMSE of the logarithm of predicted and actual sale prices. The notebooks' own 5-fold cross-validation RMSE is measured on the same log scale, so CV and leaderboard numbers are directly comparable.
 
-The final V3 notebook reports a Kaggle score of **0.12506**, improving on the earlier V1 score of **0.14337** and V2 score of **0.14663**.
+| Version | CV / Kaggle RMSE | Approach |
+|---|---|---|
+| V1 | 0.14337 | Baseline regression |
+| V2 | 0.14663 | Regression attempt with preprocessing bugs (regressed vs. V1) |
+| V3 | 0.12506 (Kaggle) | Fixed preprocessing + XGBoost/Lasso blend |
+| **V4** | **~0.1075 (CV)** | Fixed preprocessing + ElasticNet/Lasso + XGBoost **stacked** with a Ridge meta-learner |
+
+V4 was validated with 5-fold cross-validation during development; it has not yet been scored on the Kaggle leaderboard.
 
 ## Project Structure
 
 ```text
 House-Prices-Predictive-Analysis/
-├── House_Price_Model_V3.ipynb          # Main modelling notebook
+├── House_Price_Model_V4.ipynb          # Latest modelling notebook (stacked ensemble)
+├── House_Price_Model_V3.ipynb          # Previous modelling notebook
 ├── House_price_regression_v1_0.ipynb   # Earlier experiment
 ├── Regression Model V2_Failed.ipynb    # Earlier experiment / learning iteration
 ├── train.csv                           # Training dataset
@@ -75,16 +91,17 @@ House-Prices-Predictive-Analysis/
 ├── sample_submission.csv               # Kaggle submission format
 ├── submission_v1.csv                   # Earlier submission
 ├── submissionV2.csv                    # Earlier submission
-└── submissionV3.csv                    # Latest submission
+├── submissionV3.csv                    # V3 submission
+└── submissionV4.csv                    # Latest submission
 ```
 
 ## Key Learning
 
-The project demonstrates that model performance depends not only on the choice of algorithm, but also on data preparation, feature representation, validation strategy, and disciplined model selection. The progression from V1 to V3 was used to identify sources of noise and improve the overall modelling pipeline.
+The project demonstrates that model performance depends not only on the choice of algorithm, but also on data preparation, feature representation, validation strategy, and disciplined model selection. The progression from V1 to V3 was used to identify sources of noise and improve the overall modelling pipeline. V4 added a further lesson: an ensemble only improves on its best member when its components are genuinely diverse — stacking two correlated linear models produced no gain, while stacking a regularized linear model with a tree-based model did.
 
 ## Technologies
 
-Python · Pandas · NumPy · Scikit-learn · Seaborn · Matplotlib · SciPy · XGBoost · Jupyter Notebook
+Python · Pandas · NumPy · Scikit-learn · Seaborn · Matplotlib · SciPy · XGBoost · LightGBM · Jupyter Notebook
 
 ## Author
 
